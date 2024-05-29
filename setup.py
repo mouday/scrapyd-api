@@ -50,7 +50,7 @@ https://packaging.python.org/guides/making-a-pypi-friendly-readme/
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-version = '0.0.1'
+version = '0.0.2'
 
 with io.open("README.md", 'r', encoding='utf-8') as f:
     long_description = f.read()
