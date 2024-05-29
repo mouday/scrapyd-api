@@ -43,7 +43,8 @@ class ScrapydClient(ScrapydAPI):
 
                 if error_name in response.text:
                     msg = self._match_error_message('RuntimeError', response.text)
-                    raise ScrapydException(msg)
+                    if msg:
+                        raise ScrapydException(msg)
 
             return response.text
 
@@ -314,4 +315,5 @@ class ScrapydClient(ScrapydAPI):
     def _match_error_message(self, keywords, text):
         """从返回的文本中搜索报错信息"""
         match = re.search(f'{keywords}:.*', text)
-        return match.group(0)
+        if match:
+            return match.group(0)
