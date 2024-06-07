@@ -14,10 +14,10 @@ from .scrapyd_api import ScrapydAPI
 class ScrapydClient(ScrapydAPI):
     # 目前遇到的报错信息
     ERROR_LIST = [
-        'KeyError',
-        'RuntimeError',
-        'FileNotFoundError',
-        'NotADirectoryError',
+        "KeyError",
+        "RuntimeError",
+        "FileNotFoundError",
+        "NotADirectoryError",
     ]
 
     # 原来的时间格式
@@ -31,18 +31,20 @@ class ScrapydClient(ScrapydAPI):
         if not response.ok:
             response.raise_for_status()
 
+        content_type = response.headers["Content-Type"]
         # 处理json
-        if response.headers['Content-Type'] == 'application/json':
+        if content_type == "application/json":
             return super().after_request(response)
 
-        # 处理文本内容
+        # 如果是日志接口，直接返回文本
+        elif content_type == "text/plain" and "/logs" in response.url:
+            return response.text
         else:
             response.encoding = response.apparent_encoding
-
             for error_name in self.ERROR_LIST:
 
                 if error_name in response.text:
-                    msg = self._match_error_message('RuntimeError', response.text)
+                    msg = self._match_error_message("RuntimeError", response.text)
                     if msg:
                         raise ScrapydException(msg)
 
@@ -55,7 +57,7 @@ class ScrapydClient(ScrapydAPI):
     def daemon_status(self):
         """增加了返回参数 total"""
         res = super().daemon_status()
-        res['total'] = res['pending'] + res['running'] + res['finished']
+        res["total"] = res["pending"] + res["running"] + res["finished"]
         return res
 
     def add_version(self, project, egg, version=None):
@@ -67,18 +69,18 @@ class ScrapydClient(ScrapydAPI):
 
     def list_spiders(self, project, _version=None):
         """返回值：列表+字符串 改为 列表+字典"""
-        spiders = super().list_spiders(project, _version)['spiders']
-        return [{'spider': spider} for spider in spiders]
+        spiders = super().list_spiders(project, _version)["spiders"]
+        return [{"spider": spider} for spider in spiders]
 
     def list_projects(self):
         """返回值：列表+字符串 改为 列表+字典"""
-        projects = super().list_projects()['projects']
-        return [{'project': project} for project in projects]
+        projects = super().list_projects()["projects"]
+        return [{"project": project} for project in projects]
 
     def list_versions(self, project):
         """返回值：列表+字符串 改为 列表+字典"""
-        versions = super().list_versions(project)['versions']
-        return [{'version': version} for version in versions]
+        versions = super().list_versions(project)["versions"]
+        return [{"version": version} for version in versions]
 
     #####################################################
     # 扩展的数据接口
@@ -88,7 +90,7 @@ class ScrapydClient(ScrapydAPI):
         """查询任务状态"""
         res = self.list_jobs_merge(project=project)
         for item in res:
-            if item['id'] == job:
+            if item["id"] == job:
                 return item
         else:
             raise ScrapydException("没有找到该任务")
@@ -101,15 +103,9 @@ class ScrapydClient(ScrapydAPI):
         :param project:
         :return:
         """
-        versions = super().list_versions(project)['versions']
+        versions = super().list_versions(project)["versions"]
 
-        return [
-            {
-                'version': version,
-                'format_version': self._format_version(version)
-            }
-            for version in versions
-        ]
+        return [{"version": version, "format_version": self._format_version(version)} for version in versions]
 
     def list_jobs_merge(self, project, status=None):
         """
@@ -129,11 +125,11 @@ class ScrapydClient(ScrapydAPI):
             lst.extend(self._get_jobs_list(res, PENDING))
 
             running_list = self._get_jobs_list(res, RUNNING)
-            running_list.sort(key=itemgetter('start_time'), reverse=True)
+            running_list.sort(key=itemgetter("start_time"), reverse=True)
             lst.extend(running_list)
 
             finished_list = self._get_jobs_list(res, FINISHED)
-            finished_list.sort(key=itemgetter('start_time'), reverse=True)
+            finished_list.sort(key=itemgetter("start_time"), reverse=True)
             lst.extend(finished_list)
 
         pending = len(res[PENDING])
@@ -142,18 +138,18 @@ class ScrapydClient(ScrapydAPI):
         total = pending + running + finished
 
         data = {
-            'list': lst,
-            'total': total,
-            'pending': pending,
-            'running': running,
-            'finished': finished,
+            "list": lst,
+            "total": total,
+            "pending": pending,
+            "running": running,
+            "finished": finished,
         }
 
         return data
 
     def cancel_all_project_job(self):
         """取消所有项目下的任务"""
-        projects = super().list_projects()['projects']
+        projects = super().list_projects()["projects"]
 
         for project in projects:
             self.cancel_all_job(project=project)
@@ -163,11 +159,11 @@ class ScrapydClient(ScrapydAPI):
         res = super().list_jobs(project=project)
         jobs = []
 
-        jobs.extend(res['pending'])
-        jobs.extend(res['running'])
+        jobs.extend(res["pending"])
+        jobs.extend(res["running"])
 
         for job in jobs:
-            super().cancel(project, job=job['id'])
+            super().cancel(project, job=job["id"])
 
     #####################################################
     # 扩展的日志接口
@@ -175,29 +171,29 @@ class ScrapydClient(ScrapydAPI):
 
     def logs(self):
         """获取日志-项目列表"""
-        res = self.get(path='/logs')
+        res = self.get(path="/logs")
         return self._parse_table(res)
 
     def project_logs(self, project):
         """获取日志-爬虫列表"""
-        path = '/logs/{}'.format(project)
+        path = "/logs/{}".format(project)
 
         res = self.get(path=path)
         return self._parse_table(res)
 
     def spider_logs(self, project, spider):
         """获取日志-任务列表"""
-        path = '/logs/{}/{}'.format(project, spider)
+        path = "/logs/{}/{}".format(project, spider)
 
         res = self.get(path=path)
         return self._parse_table(res)
 
     def job_log(self, project, spider, job):
         """获取job日志"""
-        if not job.endswith('.log'):
-            job = job + '.log'
+        if not job.endswith(".log"):
+            job = job + ".log"
 
-        path = '/logs/{}/{}/{}'.format(project, spider, job)
+        path = "/logs/{}/{}/{}".format(project, spider, job)
 
         return self.get(path=path)
 
@@ -207,20 +203,20 @@ class ScrapydClient(ScrapydAPI):
     def _parse_table(self, text):
         """解析表格数据"""
         sel = Selector(text=text)
-        rows = sel.css('table tbody tr')
+        rows = sel.css("table tbody tr")
 
         lst = []
         for row in rows:
-            filename = row.css('td:nth-child(1) a::text').extract_first('')
-            size = row.css('td:nth-child(2)::text').extract_first('')
-            content_type = row.css('td:nth-child(3)::text').extract_first('')
-            content_encoding = row.css('td:nth-child(4)::text').extract_first('')
+            filename = row.css("td:nth-child(1) a::text").extract_first("")
+            size = row.css("td:nth-child(2)::text").extract_first("")
+            content_type = row.css("td:nth-child(3)::text").extract_first("")
+            content_encoding = row.css("td:nth-child(4)::text").extract_first("")
 
             item = {
-                'filename': filename.strip('/'),
-                'size': size,
-                'content_type': content_type,
-                'content_encoding': content_encoding,
+                "filename": filename.strip("/"),
+                "size": size,
+                "content_type": content_type,
+                "content_encoding": content_encoding,
             }
 
             lst.append(item)
@@ -235,13 +231,13 @@ class ScrapydClient(ScrapydAPI):
 
     def _format_date_time(self, date_time):
         if not date_time:
-            return ''
+            return ""
 
         return date_time.strftime(self.TARGET_DATE_TIME_FORMAT)
 
     def _convert_date_time(self, date_time):
         if not date_time:
-            return ''
+            return ""
 
         return self._format_date_time(self._parse_date_time(date_time))
 
@@ -257,7 +253,7 @@ class ScrapydClient(ScrapydAPI):
         :return: str
         """
         if not seconds:
-            return ''
+            return ""
 
         hour, second = divmod(seconds, 60 * 60)
         minute, second = divmod(second, 60)
@@ -289,8 +285,8 @@ class ScrapydClient(ScrapydAPI):
             return lst
 
         for row in data[status]:
-            start_time = self._parse_date_time(row.get('start_time'))
-            end_time = self._parse_date_time(row.get('end_time'))
+            start_time = self._parse_date_time(row.get("start_time"))
+            end_time = self._parse_date_time(row.get("end_time"))
 
             if start_time and end_time:
                 duration = self._get_duration(start_time, end_time)
@@ -298,14 +294,14 @@ class ScrapydClient(ScrapydAPI):
                 duration = None
 
             item = {
-                'status': status,
-                'id': row['id'],
-                'spider': row['spider'],
-                'pid': row.get('pid', ''),
-                'start_time': self._format_date_time(start_time),
-                'end_time': self._format_date_time(end_time),
-                'duration': duration,
-                'duration_str': self._format_duration(duration),
+                "status": status,
+                "id": row["id"],
+                "spider": row["spider"],
+                "pid": row.get("pid", ""),
+                "start_time": self._format_date_time(start_time),
+                "end_time": self._format_date_time(end_time),
+                "duration": duration,
+                "duration_str": self._format_duration(duration),
             }
 
             lst.append(item)
@@ -314,6 +310,6 @@ class ScrapydClient(ScrapydAPI):
 
     def _match_error_message(self, keywords, text):
         """从返回的文本中搜索报错信息"""
-        match = re.search(f'{keywords}:.*', text)
+        match = re.search(f"{keywords}:.*", text)
         if match:
             return match.group(0)
