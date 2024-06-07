@@ -38,6 +38,7 @@ class ScrapydClient(ScrapydAPI):
 
         # 如果是日志接口，直接返回文本
         elif content_type == "text/plain" and "/logs" in response.url:
+            response.encoding = response.apparent_encoding
             return response.text
         else:
             response.encoding = response.apparent_encoding
