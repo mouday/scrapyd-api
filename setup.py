@@ -2,9 +2,11 @@
 
 # @Date    : 2019-06-26
 # @Author  : Peng Shiyu
+from __future__ import print_function, unicode_literals, absolute_import, division
 
 import io
 import os
+import glob
 
 from setuptools import setup, find_packages
 
@@ -50,7 +52,14 @@ https://packaging.python.org/guides/making-a-pypi-friendly-readme/
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-version = '0.0.2'
+
+# 版本号
+version_file = glob.glob("*/version.py")[0]
+
+with io.open(version_file, 'rb') as f:
+    version_var = {}
+    exec(f.read(), version_var)
+    VERSION = version_var['VERSION']
 
 with io.open("README.md", 'r', encoding='utf-8') as f:
     long_description = f.read()
@@ -60,7 +69,7 @@ with io.open("requirements.txt", 'r') as f:
 
 setup(
     name='scrapyd-api',
-    version=version,
+    version=VERSION,
     description="scrapyd api",
 
     keywords='spider admin',
